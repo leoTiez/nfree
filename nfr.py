@@ -23,13 +23,19 @@ def parse_arguments(args):
                         help='Path to output directory. Default is current directory.')
     parser.add_argument('--smooth_ws', type=int, default=50,
                         help='Size of smoothing window. Default is 50.')
-    parser.add_argument('--mind_nfr', type=int, default=50,
+    parser.add_argument('--mind_nfr', type=int, default=100,
                         help='Minimum distance from the TSS to NFR. Default is 50.')
     parser.add_argument('--maxd_total', type=int, default=500,
                         help='Maximum distance from the TSS for +1 and -1 nucleosome. Default is 500.')
     parser.add_argument('--sig_nfold', type=int, default=3,
                         help='Determines how much larger another peak must be to use it as +1/-1 nucleosome instead of'
                              'initially computed value.'
+                        )
+    parser.add_argument('--mind_nucl', type=int, default=150,
+                        help='Minimum distance between +1 and -1 nucleosome. Default is 150.')
+    parser.add_argument('--p1_tss', action='store_true', dest='is_p1_tss',
+                        help='When flag is set, the +1 nucleosome is always the closest peak to the tss instead of '
+                             'being based on the computation of the NFR'
                         )
     parser.add_argument('--verbosity', type=int, default=0,
                         help='Verbosity flag regulates output on console. '
@@ -60,7 +66,9 @@ def main(args):
     smooth_ws = pargs.smooth_ws
     sig_nfold = pargs.sig_nfold
     mind_nfr = pargs.mind_nfr
+    is_p1_tss = pargs.is_p1_tss
     maxd_total = pargs.maxd_total
+    mind_nucl = pargs.mind_nucl
     out_path = pargs.out
     verbosity = pargs.verbosity
 
@@ -130,30 +138,39 @@ def main(args):
         descending = np.arange(distance)[(np.roll(asign, 1) - asign) > 0]
         if descending.size < 2:
             continue
-        ascending = np.arange(distance)[(np.roll(asign, 1) - asign) < 0]
-        # ascending = ascending[np.logical_and(ascending > descending[0], ascending < descending[-1])]
-        # Compute position of nfr
-        if direct == '+':
-            nfr_centre_candidate = ascending[np.logical_and(
-                maxd_total + mind_nfr * 2 > ascending,
-                ascending > 1
-            )]
-        else:
-            nfr_centre_candidate = ascending[np.logical_and(
-                maxd_total - mind_nfr * 2 < ascending,
-                ascending < maxd_total * 2
-            )]
-        nfr_centre = nfr_centre_candidate[np.argmin(mnase_data[nfr_centre_candidate])]
+        if not is_p1_tss:
+            ascending = np.arange(distance)[(np.roll(asign, 1) - asign) < 0]
+            # Compute position of nfr
+            if direct == '+':
+                nfr_centre_candidate = ascending[np.logical_and(
+                    maxd_total + mind_nfr > ascending,
+                    ascending > 1
+                )]
+            else:
+                nfr_centre_candidate = ascending[np.logical_and(
+                    maxd_total - mind_nfr < ascending,
+                    ascending < maxd_total * 2
+                )]
+            nfr_centre = nfr_centre_candidate[np.argmin(mnase_data[nfr_centre_candidate])]
 
-        # compute p1 and m1
-        p1_candidates = descending[descending > nfr_centre]
-        if p1_candidates.size == 0:
-            p1_candidates = np.asarray([distance - 1])
-        p1 = calc_sig_better(p1_candidates, mnase_data, sig_nfold)
-        m1_candidates = descending[descending < nfr_centre]
-        if m1_candidates.size == 0:
-            m1_candidates = np.asarray([0])
-        m1 = calc_sig_better(m1_candidates, mnase_data, sig_nfold, is_positive=False)
+            # compute p1 and m1
+            p1_candidates = descending[descending > nfr_centre]
+            if p1_candidates.size == 0:
+                p1_candidates = np.asarray([distance - 1])
+            p1 = calc_sig_better(p1_candidates, mnase_data, sig_nfold)
+            m1_candidates = descending[np.logical_and(descending < nfr_centre, descending < p1 - mind_nucl)]
+            if m1_candidates.size == 0:
+                m1_candidates = np.asarray([0])
+            m1 = calc_sig_better(m1_candidates, mnase_data, sig_nfold, is_positive=False)
+        else:
+            p1 = descending[np.argmin(np.abs(descending - maxd_total))]
+            # Compute position of nfr
+            if direct == '+':
+                m1_candidates = descending[descending <= p1 - mind_nucl]
+                m1 = np.max(m1_candidates)
+            else:
+                m1_candidates = descending[descending >= p1 + mind_nucl]
+                m1 = np.min(m1_candidates)
         nfr = np.asarray([m1, p1])
 
         if verbosity > 2:
