@@ -9,6 +9,10 @@ It is based on a simple algorithm that can be summarised as follows:
 5) The +1 and -1 nucleosome positions are subsequently defined by the maxima that sandwich the NFR
 6) If there is a peak that is significantly larger (defined by  a threshold), then the nucleosome position is accordingly replaced
 
+Alternatively, it is possible to automatically consider the +1 nucleosome as the closest peak to the TSS. The -1 nucleosome
+is then said to be the first upstream peak. However, consider this calculation only if you trust the precision of your
+annotation file.
+
 The detection is considerably robust and detects the NTF even when the given TSS is not arount the actual +1 nucleosome.
 
 | |  | |
@@ -17,7 +21,7 @@ The detection is considerably robust and detects the NTF even when the given TSS
 
 
 ## Requirements
-The program requires Python3 and pip to be installed
+The program requires Python3, pip, and curl to be installed.
 
 ## Installation
 Install the dependencies through
@@ -31,7 +35,7 @@ The MNase signal should be converted to a bigwig `.bw` file. Gene annotations ca
 NFR sizes are saved as a `.tsv` file together with the corresponding annotation names. 
 
 ```commandline
-python3 nfr.py --bw=path/to/bw/file --annot=path/to/annotation [--smooth_ws=50 --sig_nfold=3 --mind_nfr=50 --maxd_total=500 --out_path=path/to/output/file --verbosity=0]
+python3 nfr.py --bw=path/to/bw/file --annot=path/to/annotation [--smooth_ws=50 --sig_nfold=3 --mind_nfr=50 --maxd_total=500 --out_path=path/to/output/file --verbosity=0 --p1_tss --mind_nucl=150]
 ```
 
 Parameters in brackets are optional.
@@ -41,3 +45,5 @@ Parameters in brackets are optional.
 - `--maxd_total`: maximum distance from the TSS that is considered for finding +1/-1 nucleosome. Thus, the total window size is 2 * `maxd_total`
 - `--out_path`: output directory
 - `--verbosity`: verbosity flag to set amount of visualisation during execution. 
+- `--p1_tss`: use the closest peak to the TSS to determine the +1 nucleosome. Computation does subsequently not rely anymore on the calculation of the NFR
+- `--mind_nucl`: minimum distance between +1 and -1 nucleosome.
