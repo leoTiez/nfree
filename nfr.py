@@ -2,6 +2,7 @@
 import sys
 import os
 import argparse
+import warnings
 import pandas as pd
 import numpy as np
 import gtfparse
@@ -37,6 +38,9 @@ def parse_arguments(args):
                         help='When flag is set, the +1 nucleosome is always the closest peak to the tss instead of '
                              'being based on the computation of the NFR'
                         )
+    parser.add_argument('--scale', type=int, default=1,
+                        help='Scale smoothed signal with that factor. Default is 1.'
+                        )
     parser.add_argument('--verbosity', type=int, default=0,
                         help='Verbosity flag regulates output on console. '
                              '0: no output; '
@@ -68,6 +72,7 @@ def main(args):
     mind_nfr = pargs.mind_nfr
     is_p1_tss = pargs.is_p1_tss
     maxd_total = pargs.maxd_total
+    scaling = pargs.scale
     mind_nucl = pargs.mind_nucl
     out_path = pargs.out
     verbosity = pargs.verbosity
@@ -111,9 +116,6 @@ def main(args):
         else:
             chromosome, start, end, direct, name = gene[0], int(gene[1]), int(gene[2]), gene[5], gene[3]
 
-        if chromosome == 'chrM':
-            continue
-
         start = end if direct == '-' else start
         if verbosity > 1:
             print('Calculate NFR for %s at %s:%s with direction %s' % (name, chromosome, start, direct))
@@ -127,16 +129,20 @@ def main(args):
 
         distance = np.abs(np.maximum(start - maxd_total, 0) - np.minimum(start + maxd_total, max_bp))
         # Smooth data
-        mnase_data = np.convolve(mnase_data_raw, np.ones(smooth_ws)/float(smooth_ws), mode='same') * 10
+        mnase_data = np.convolve(mnase_data_raw, np.ones(smooth_ws)/float(smooth_ws), mode='same') * scaling
 
         # Compute gradient
         grad = np.gradient(mnase_data)
-        grad = np.convolve(grad, np.ones(smooth_ws)/float(smooth_ws), mode='same') * 10
+        grad = np.convolve(grad, np.ones(smooth_ws)/float(smooth_ws), mode='same') * scaling
 
         # Compute maxima and minima
         asign = np.sign(grad)
         descending = np.arange(distance)[(np.roll(asign, 1) - asign) > 0]
         if descending.size < 2:
+            warnings.warn(
+                'Could not find enough peaks for %s on chromosome %s. Skip.' % (name, chromosome),
+                UserWarning
+            )
             continue
         if not is_p1_tss:
             ascending = np.arange(distance)[(np.roll(asign, 1) - asign) < 0]
@@ -151,26 +157,53 @@ def main(args):
                     maxd_total - mind_nfr < ascending,
                     ascending < maxd_total * 2
                 )]
-            nfr_centre = nfr_centre_candidate[np.argmin(mnase_data[nfr_centre_candidate])]
+            try:
+                nfr_centre = nfr_centre_candidate[np.argmin(mnase_data[nfr_centre_candidate])]
+            except ValueError:
+                warnings.warn(
+                    'Could not find NFR centre for %s on chromsome %s. Skip.' % (name, chromosome),
+                    UserWarning
+                )
+                continue
 
             # compute p1 and m1
             p1_candidates = descending[descending > nfr_centre]
             if p1_candidates.size == 0:
                 p1_candidates = np.asarray([distance - 1])
-            p1 = calc_sig_better(p1_candidates, mnase_data, sig_nfold)
+            try:
+                p1 = calc_sig_better(p1_candidates, mnase_data, sig_nfold)
+            except IndexError:
+                warnings.warn('Could not find +1 for %s on chromsome %s. Skip.' % (name, chromosome), UserWarning)
+                continue
             m1_candidates = descending[np.logical_and(descending < nfr_centre, descending < p1 - mind_nucl)]
             if m1_candidates.size == 0:
                 m1_candidates = np.asarray([0])
-            m1 = calc_sig_better(m1_candidates, mnase_data, sig_nfold, is_positive=False)
+            try:
+                m1 = calc_sig_better(m1_candidates, mnase_data, sig_nfold, is_positive=False)
+            except IndexError:
+                warnings.warn('Could not find -1 for %s on chromosome %s. Skip.' % (name, chromosome), UserWarning)
+                continue
         else:
-            p1 = descending[np.argmin(np.abs(descending - maxd_total))]
+            try:
+                p1 = descending[np.argmin(np.abs(descending - maxd_total))]
+            except IndexError:
+                warnings.warn('Could not find +1 for %s on chromosome %s. Skip.' % (name, chromosome), UserWarning)
+                continue
             # Compute position of nfr
             if direct == '+':
                 m1_candidates = descending[descending <= p1 - mind_nucl]
-                m1 = np.max(m1_candidates)
+                try:
+                    m1 = calc_sig_better(m1_candidates, mnase_data, sig_nfold, is_positive=False)
+                except IndexError:
+                    warnings.warn('Could not find -1 for %s on chromosome %s. Skip.' % (name, chromosome), UserWarning)
+                    continue
             else:
                 m1_candidates = descending[descending >= p1 + mind_nucl]
-                m1 = np.min(m1_candidates)
+                try:
+                    m1 = calc_sig_better(m1_candidates, mnase_data, sig_nfold)
+                except IndexError:
+                    warnings.warn('Could not find -1 for %s on chromosome %s. Skip.' % (name, chromosome), UserWarning)
+                    continue
         nfr = np.asarray([m1, p1])
 
         if verbosity > 2:
@@ -179,8 +212,8 @@ def main(args):
                 np.minimum(start + maxd_total, max_bp)
             )
             plt.figure(figsize=(8, 7))
-            plt.plot(x_position, mnase_data_raw, color='tab:green')
-            plt.plot(x_position, mnase_data, color='tab:green')
+            plt.plot(x_position, mnase_data_raw, color='tab:green', alpha=.5)
+            plt.plot(x_position, mnase_data, color='tab:red')
             plt.vlines(start, ymin=0, ymax=np.max(mnase_data), linestyle='--', color='black', linewidth=4)
             plt.scatter(x_position[nfr], mnase_data[nfr], color='red', s=9**2)
             plt.xlabel('Pos (bp)', fontsize=24)
