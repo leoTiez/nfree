@@ -218,7 +218,7 @@ def main(args):
             plt.scatter(x_position[nfr], mnase_data[nfr], color='red', s=9**2)
             plt.xlabel('Pos (bp)', fontsize=24)
             plt.ylabel('MNase Amplitude', fontsize=24)
-            plt.xticks([start - maxd_total, start, start + maxd_total], ['-500', 'TSS', '+500'], fontsize=20)
+            plt.xticks([start - maxd_total, start, start + maxd_total], [-maxd_total, 'TSS', maxd_total], fontsize=20)
             plt.yticks(fontsize=20)
             plt.title('NFR %s: %s' % (name, np.abs(nfr[0] - nfr[1])), fontsize=32)
             plt.show()
