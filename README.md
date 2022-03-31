@@ -11,7 +11,14 @@ It is based on a simple algorithm that can be summarised as follows:
 
 Alternatively, it is possible to automatically consider the +1 nucleosome as the closest peak to the TSS. The -1 nucleosome
 is then said to be the first upstream peak. However, consider this calculation only if you trust the precision of your
-annotation file.
+annotation file. Also, it is assumed that the MNase-seq signal contains a lot of noise. If you have already filtered
+your data by read length (e.g. between 130 and 200bp), then the results are more reliable when choosing the +1 nucleosome 
+as reference, rather than the NFR. This is due to the fact that a large amount of the background signal is removed, and 
+the detection of the NFR is not straightforward anymore.
+
+If you experience that the program detects small wiggles as peaks, change the size of the smoothing window to a larger value.
+If some important peaks are not detected, you can try to make it smaller. You can also change the `sig_nfold` flag. For more 
+information see below.
 
 The detection is considerably robust and detects the NTF even when the given TSS is not arount the actual +1 nucleosome.
 
@@ -35,7 +42,7 @@ The MNase signal should be converted to a bigwig `.bw` file. Gene annotations ca
 NFR sizes are saved as a `.tsv` file together with the corresponding annotation names. 
 
 ```commandline
-python3 nfr.py --bw=path/to/bw/file --annot=path/to/annotation [--smooth_ws=50 --sig_nfold=3 --mind_nfr=50 --maxd_total=500 --out_path=path/to/output/file --verbosity=0 --p1_tss --mind_nucl=150]
+python3 nfr.py --bw=path/to/bw/file --annot=path/to/annotation [--smooth_ws=50 --sig_nfold=3 --mind_nfr=50 --maxd_total=500 --out_path=path/to/output/file --verbosity=0 --p1_tss --mind_nucl=150 --scale=1]
 ```
 
 Parameters in brackets are optional.
@@ -47,3 +54,4 @@ Parameters in brackets are optional.
 - `--verbosity`: verbosity flag to set amount of visualisation during execution. 
 - `--p1_tss`: use the closest peak to the TSS to determine the +1 nucleosome. Computation does subsequently not rely anymore on the calculation of the NFR
 - `--mind_nucl`: minimum distance between +1 and -1 nucleosome.
+- `--scale`: Scale the smoothed signals. This is predominantly helpful when you intend to plot your results (i.e. `verbosity > 3`)
