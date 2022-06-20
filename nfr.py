@@ -97,6 +97,7 @@ def main(args):
     if verbosity > 0:
         print('Compute NFRs')
     nfr_l = []
+    nfr_depth_l = []
     gname_l = []
     if annot_type == 'gtf':
         gene_iterator = annot_file.iterrows()
@@ -183,6 +184,8 @@ def main(args):
             except IndexError:
                 warnings.warn('Could not find -1 for %s on chromosome %s. Skip.' % (name, chromosome), UserWarning)
                 continue
+
+            depth = np.abs(np.maximum(mnase_data[p1], mnase_data[m1]) - mnase_data[nfr_centre])
         else:
             try:
                 p1 = descending[np.argmin(np.abs(descending - maxd_total))]
@@ -197,6 +200,7 @@ def main(args):
                 except IndexError:
                     warnings.warn('Could not find -1 for %s on chromosome %s. Skip.' % (name, chromosome), UserWarning)
                     continue
+                depth = np.abs(np.maximum(mnase_data[m1], mnase_data[p1]) - np.min(mnase_data[m1:p1]))
             else:
                 m1_candidates = descending[descending >= p1 + mind_nucl]
                 try:
@@ -204,8 +208,9 @@ def main(args):
                 except IndexError:
                     warnings.warn('Could not find -1 for %s on chromosome %s. Skip.' % (name, chromosome), UserWarning)
                     continue
-        nfr = np.asarray([m1, p1])
+                depth = np.abs(np.maximum(mnase_data[m1], mnase_data[p1]) - np.min(mnase_data[p1:m1]))
 
+        nfr = np.asarray([m1, p1])
         if verbosity > 2:
             x_position = np.arange(
                 np.maximum(start - maxd_total, 0),
@@ -223,12 +228,14 @@ def main(args):
             plt.title('NFR %s: %s' % (name, np.abs(nfr[0] - nfr[1])), fontsize=32)
             plt.show()
 
+        nfr_depth_l.append(depth)
         nfr_l.append(np.abs(nfr[0] - nfr[1]))
         gname_l.append(name)
 
     df = pd.DataFrame()
     df['name'] = gname_l
     df['nfr'] = nfr_l
+    df['depth'] = nfr_depth_l
     out_path = os.getcwd() if out_path is None else out_path
     out_path = '%s/nrf.tsv' % out_path
     if verbosity > 0:
