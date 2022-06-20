@@ -1,5 +1,8 @@
 # Calculate Size of Nucleosome Free Regions (NFR)
-This command line tool provides an easy interface for calculating the size of NFRs.
+
+[![DOI](https://zenodo.org/badge/475534080.svg)](https://zenodo.org/badge/latestdoi/475534080)
+
+This command line tool provides an easy interface for calculating the size and depth of NFRs.
 It is based on a simple algorithm that can be summarised as follows:
 
 1) Take the TSS as a reference position. They are given by the passed `.bed` or `.gtf` file 
@@ -20,7 +23,7 @@ If you experience that the program detects small wiggles as peaks, change the si
 If some important peaks are not detected, you can try to make it smaller. You can also change the `sig_nfold` flag. For more 
 information see below.
 
-The detection is considerably robust and detects the NTF even when the given TSS is not arount the actual +1 nucleosome.
+The detection is considerably robust and detects the NTF even when the given TSS is not around the actual +1 nucleosome.
 
 | |  | |
 :-------------------------:|:-------------------------:|:-------------------------:
@@ -54,4 +57,4 @@ Parameters in brackets are optional.
 - `--verbosity`: verbosity flag to set amount of visualisation during execution. 
 - `--p1_tss`: use the closest peak to the TSS to determine the +1 nucleosome. Computation does subsequently not rely anymore on the calculation of the NFR
 - `--mind_nucl`: minimum distance between +1 and -1 nucleosome.
-- `--scale`: Scale the smoothed signals. This is predominantly helpful when you intend to plot your results (i.e. `verbosity > 3`)
+- `--scale`: Scale the smoothed signals. This can be used to adjust the comparability of the depth between different MNase signals. It can be also helpful if you're intending to plot your results (i.e. `verbosity > 3`)
